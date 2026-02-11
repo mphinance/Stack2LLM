@@ -1,0 +1,5 @@
+post_id,timestamp,email,post_type,post_audience,active_subscription
+178082812,2025-11-05T14:26:21.708Z,smithd4@live.com,newsletter,everyone,false
+178082812,2025-11-05T14:26:21.887Z,freeballer202020@gmail.com,newsletter,everyone,true
+178082812,2025-11-05T14:26:22.502Z,theofficialMADAM883@gmail.com,newsletter,everyone,true
+178082812,2025-11-05T14:26:22.665Z,tjbell88@gmail.com,newsletter,everyone,false

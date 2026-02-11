@@ -1,0 +1,4 @@
+post_id,timestamp,email,post_type,post_audience,active_subscription,country,city,region,device_type,client_os,client_type,user_agent
+178082812,2025-11-06T11:41:34.937Z,tjbell88@gmail.com,newsletter,everyone,false,US,,,,,,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+178082812,2025-11-06T11:41:35.058Z,tjbell88@gmail.com,newsletter,everyone,false,US,,,,,,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+178082812,2025-11-07T09:30:47.933Z,smithd4@live.com,newsletter,everyone,false,NL,,,,,,Mozilla/5.0
