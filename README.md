@@ -20,8 +20,8 @@ Every Substack writer has a unique voice. This tool bridges the gap between your
 
 ## 📦 Setup & Installation
 ```bash
-git clone https://github.com/mph/substack-flow.git
-cd substack-flow
+git clone https://github.com/mphinance/Stack2LLM.git
+cd Stack2LLM
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
