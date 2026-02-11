@@ -1,4 +1,6 @@
-# Substack Flow 📖
+# Stack2LLM 📖
+
+**Live App:** [https://stack2llm.streamlit.app](https://stack2llm.streamlit.app)
 
 Convert Substack posts into clean, LLM-optimized Markdown. Perfect for "Write as Me" training, NotebookLM, or custom RAG pipelines.
 
