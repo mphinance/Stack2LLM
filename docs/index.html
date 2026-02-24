@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stack2LLM — Substack → Markdown Converter</title>
+  <meta name="description" content="Convert your Substack content into clean, LLM-ready Markdown. Powered entirely client-side with Puter.js." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <!-- JSZip from cdnjs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- Puter.js -->
+  <script src="https://js.puter.com/v2/"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #07090f;
+      --surface: #0d1117;
+      --surface2: #131924;
+      --surface3: #1a2232;
+      --border: #1f2d42;
+      --border-bright: #2a3f5a;
+      --text: #e8eaf0;
+      --text-muted: #6b7d96;
+      --text-dim: #3d4f66;
+      --amber: #f4a535;
+      --amber-dim: #a06e1e;
+      --green: #3dffa0;
+      --green-dim: #0d5c38;
+      --red: #ff5c6c;
+      --blue: #4d8ef5;
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+      --font-body: 'Inter', sans-serif;
+      --radius: 6px;
+      --glow-amber: 0 0 24px rgba(244,165,53,0.12);
+      --glow-green: 0 0 24px rgba(61,255,160,0.10);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-body);
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.015) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.015) 40px);
+    }
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(7,9,15,0.92);
+      backdrop-filter: blur(12px);
+    }
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .logo {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.3rem;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+    .logo span { color: var(--amber); }
+    .header-badge {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 3px;
+      letter-spacing: 0.08em;
+    }
+
+    /* ── MAIN ────────────────────────────────────────────── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem 6rem;
+    }
+
+    /* ── HERO ────────────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 3.5rem 0 3rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
+    .hero-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--amber);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      opacity: 0.9;
+    }
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #e8eaf0 0%, #8fa5c4 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: 1rem;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.7;
+      font-weight: 300;
+    }
+
+    /* ── TABS ────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 0.85rem 1.5rem;
+      background: none;
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .tab-btn:last-child { border-right: none; }
+    .tab-btn.active {
+      color: var(--amber);
+      background: rgba(244,165,53,0.06);
+    }
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--amber);
+    }
+    .tab-btn:hover:not(.active) {
+      color: var(--text);
+      background: var(--surface2);
+    }
+    .tab-icon { margin-right: 0.5rem; }
+
+    /* ── PANELS ──────────────────────────────────────────── */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── CARD ────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      margin-bottom: 1rem;
+    }
+    .card-title {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    /* ── DROP ZONE ───────────────────────────────────────── */
+    #drop-zone {
+      border: 2px dashed var(--border-bright);
+      border-radius: var(--radius);
+      padding: 3.5rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      background: var(--surface2);
+      position: relative;
+    }
+    #drop-zone:hover, #drop-zone.dragover {
+      border-color: var(--amber);
+      background: rgba(244,165,53,0.04);
+      box-shadow: var(--glow-amber);
+    }
+    #drop-zone input[type=file] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .drop-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+      display: block;
+    }
+    .drop-label {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+    }
+    .drop-sub {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* ── RSS PANEL ───────────────────────────────────────── */
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .input-text {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-text::placeholder { color: var(--text-dim); }
+    .input-text:focus { border-color: var(--amber); }
+
+    /* ── BUTTONS ─────────────────────────────────────────── */
+    .btn {
+      padding: 0.75rem 1.25rem;
+      border: none;
+      border-radius: var(--radius);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .btn-primary {
+      background: var(--amber);
+      color: #07090f;
+      font-weight: 500;
+    }
+    .btn-primary:hover { background: #f5b240; box-shadow: var(--glow-amber); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .btn-ghost:hover { border-color: var(--amber); color: var(--amber); }
+    .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-green {
+      background: transparent;
+      border: 1px solid var(--green-dim);
+      color: var(--green);
+    }
+    .btn-green:hover { background: rgba(61,255,160,0.06); box-shadow: var(--glow-green); }
+    .btn-green:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── PROGRESS ────────────────────────────────────────── */
+    .progress-wrap {
+      margin: 1rem 0;
+      display: none;
+    }
+    .progress-wrap.visible { display: block; }
+    .progress-bar-track {
+      height: 3px;
+      background: var(--surface3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--amber), var(--green));
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .progress-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    /* ── STATUS LOG ──────────────────────────────────────── */
+    #status-log {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      max-height: 100px;
+      overflow-y: auto;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    #status-log.visible { display: block; }
+    .log-line { line-height: 1.6; }
+    .log-line.ok { color: var(--green); }
+    .log-line.warn { color: var(--amber); }
+    .log-line.err { color: var(--red); }
+
+    /* ── TOOLBAR ─────────────────────────────────────────── */
+    #results-toolbar {
+      display: none;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    #results-toolbar.visible { display: flex; }
+    .toolbar-stat {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      padding: 0.4rem 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+    .toolbar-stat span { color: var(--amber); font-weight: 500; }
+
+    /* ── AI PANEL ────────────────────────────────────────── */
+    #voice-panel {
+      display: none;
+      margin-bottom: 1.5rem;
+    }
+    #voice-panel.visible { display: block; }
+    .voice-output {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--green);
+      background: var(--surface);
+      border: 1px solid var(--green-dim);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      white-space: pre-wrap;
+      line-height: 1.7;
+      box-shadow: var(--glow-green);
+    }
+
+    /* ── POST CARDS ──────────────────────────────────────── */
+    #posts-container { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .post-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .post-card:hover { border-color: var(--border-bright); }
+
+    .post-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 1.1rem 1.25rem;
+      cursor: pointer;
+      user-select: none;
+      gap: 1rem;
+    }
+    .post-header:hover { background: rgba(255,255,255,0.02); }
+
+    .post-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      flex: 1;
+      min-width: 0;
+    }
+    .post-title {
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .post-tags {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      padding: 1px 6px;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      letter-spacing: 0.06em;
+    }
+    .tag.date { color: var(--text-muted); border-color: var(--border-bright); }
+    .tag.words { color: var(--amber-dim); border-color: var(--amber-dim); }
+
+    .post-actions {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .btn-tiny {
+      padding: 0.35rem 0.65rem;
+      font-size: 0.68rem;
+      border-radius: 3px;
+    }
+    .chevron {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      transition: transform 0.2s;
+      margin-left: 0.25rem;
+    }
+    .post-card.open .chevron { transform: rotate(180deg); }
+
+    .post-body {
+      display: none;
+      border-top: 1px solid var(--border);
+    }
+    .post-card.open .post-body { display: block; }
+
+    .markdown-preview {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: var(--surface2);
+      padding: 1.25rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 320px;
+      overflow-y: auto;
+      line-height: 1.7;
+    }
+
+    .ai-summary-box {
+      padding: 0.9rem 1.25rem;
+      border-top: 1px solid var(--border);
+      background: rgba(61,255,160,0.03);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--green);
+      line-height: 1.65;
+      display: none;
+    }
+    .ai-summary-box.visible { display: block; }
+    .ai-summary-label {
+      font-size: 0.65rem;
+      color: var(--green-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+
+    /* ── SCROLLBAR ───────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+    /* ── LOADING SPINNER ─────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border: 1.5px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── SECTION HEADER ──────────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .section-title {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    /* ── EMPTY STATE ─────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-dim);
+    }
+    .empty-state-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+    .empty-state-text {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      line-height: 1.6;
+    }
+
+    /* ── COPY FEEDBACK ───────────────────────────────────── */
+    .copy-feedback {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--surface3);
+      border: 1px solid var(--green-dim);
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0.6rem 1rem;
+      border-radius: var(--radius);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all 0.2s ease;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .copy-feedback.show { opacity: 1; transform: translateY(0); }
+
+    /* ── PUTER AUTH PROMPT ───────────────────────────────── */
+    .auth-hint {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      margin-top: 0.4rem;
+    }
+
+    @media (max-width: 640px) {
+      main { padding: 1.5rem 1rem 4rem; }
+      .input-row { flex-direction: column; }
+      .hero h1 { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">Stack<span>2</span>LLM</div>
+    <div class="header-badge">v1.0 · CLIENT-SIDE</div>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-label">// Substack → Markdown Converter</div>
+    <h1>Your writing.<br>LLM-ready.</h1>
+    <p>Convert your entire Substack archive to clean Markdown — locally, privately, with AI-powered voice analysis. No server. No API keys.</p>
+  </section>
+
+  <!-- TABS -->
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" id="tab-zip" role="tab" aria-selected="true" onclick="switchTab('zip')">
+      <span class="tab-icon">📦</span> ZIP UPLOAD
+    </button>
+    <button class="tab-btn" id="tab-rss" role="tab" aria-selected="false" onclick="switchTab('rss')">
+      <span class="tab-icon">📡</span> RSS / URL SCRAPE
+    </button>
+  </div>
+
+  <!-- ZIP PANEL -->
+  <div class="panel active" id="panel-zip">
+    <div class="card">
+      <div class="card-title">// Drop your Substack export ZIP</div>
+      <div id="drop-zone">
+        <input type="file" id="file-input" accept=".zip" />
+        <span class="drop-icon">🗜️</span>
+        <div class="drop-label">Drop ZIP here or click to browse</div>
+        <div class="drop-sub">substack-export.zip · processed entirely in your browser</div>
+      </div>
+      <div style="margin-top:1rem; display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+        <button class="btn btn-primary" id="btn-process-zip" onclick="processZip()" disabled>
+          ⚙️ Process ZIP
+        </button>
+        <button class="btn btn-ghost" id="btn-voice-zip" onclick="runVoiceAnalysis()" disabled>
+          🧠 Analyze Voice
+        </button>
+        <button class="btn btn-green" id="btn-save-puter" onclick="saveToPuter()" disabled>
+          ☁️ Save to Puter Drive
+        </button>
+        <button class="btn btn-ghost" id="btn-dl-zip" onclick="downloadAllZip()" disabled>
+          ⬇️ Download All as ZIP
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RSS PANEL -->
+  <div class="panel" id="panel-rss">
+    <div class="card">
+      <div class="card-title">// Paste a Substack publication URL</div>
+      <div class="input-row">
+        <input
+          class="input-text"
+          id="rss-url-input"
+          type="text"
+          placeholder="yourname.substack.com"
+          spellcheck="false"
+        />
+        <button class="btn btn-primary" id="btn-fetch-rss" onclick="fetchRSS()">
+          📡 Fetch Feed
+        </button>
+      </div>
+      <div class="auth-hint">// Posts from RSS feed — public posts only</div>
+      <div style="margin-top:1rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
+        <button class="btn btn-ghost" id="btn-voice-rss" onclick="runVoiceAnalysis()" disabled>
+          🧠 Analyze Voice
+        </button>
+        <button class="btn btn-green" id="btn-save-puter-rss" onclick="saveToPuter()" disabled>
+          ☁️ Save to Puter Drive
+        </button>
+        <button class="btn btn-ghost" id="btn-dl-rss" onclick="downloadAllZip()" disabled>
+          ⬇️ Download All as ZIP
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROGRESS + LOG -->
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+    <div class="progress-label" id="progress-label">Processing…</div>
+  </div>
+
+  <div id="status-log"></div>
+
+  <!-- VOICE ANALYSIS PANEL -->
+  <div id="voice-panel">
+    <div class="section-header">
+      <div class="section-title">// AI VOICE ANALYSIS</div>
+    </div>
+    <div class="card" style="padding:0; overflow:hidden;">
+      <div class="voice-output" id="voice-output">Analyzing your writing voice…</div>
+    </div>
+  </div>
+
+  <!-- RESULTS TOOLBAR -->
+  <div id="results-toolbar">
+    <div class="toolbar-stat">Posts: <span id="stat-count">0</span></div>
+    <div class="toolbar-stat">Words: <span id="stat-words">0</span></div>
+    <div class="toolbar-stat">Source: <span id="stat-source">—</span></div>
+  </div>
+
+  <!-- POSTS -->
+  <div id="posts-container">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-state-icon">📝</div>
+      <div class="empty-state-text">
+        Upload a Substack ZIP export or enter a URL above.<br />
+        Your posts will appear here, ready to copy or download.
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- COPY FEEDBACK -->
+<div class="copy-feedback" id="copy-toast">✓ Copied to clipboard</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let allPosts = [];          // [{title, date, markdown, wordCount}]
+let currentTab = 'zip';
+let selectedFile = null;
+
+// ═══════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════
+//  LOGGING
+// ═══════════════════════════════════════════════════════
+function log(msg, type = '') {
+  const el = document.getElementById('status-log');
+  el.classList.add('visible');
+  const line = document.createElement('div');
+  line.className = 'log-line' + (type ? ' ' + type : '');
+  line.textContent = '› ' + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setProgress(pct, label) {
+  const wrap = document.getElementById('progress-wrap');
+  wrap.classList.add('visible');
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label || 'Processing…';
+}
+
+function clearProgress() {
+  document.getElementById('progress-wrap').classList.remove('visible');
+  document.getElementById('status-log').classList.remove('visible');
+  document.getElementById('status-log').innerHTML = '';
+}
+
+// ═══════════════════════════════════════════════════════
+//  FILE INPUT / DRAG AND DROP
+// ═══════════════════════════════════════════════════════
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) onFileReady(e.target.files[0]);
+});
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.zip')) onFileReady(f);
+  else log('Please drop a .zip file.', 'warn');
+});
+
+function onFileReady(file) {
+  selectedFile = file;
+  const el = dropZone.querySelector('.drop-label');
+  el.textContent = '✓ ' + file.name + ' (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)';
+  dropZone.style.borderColor = 'var(--amber)';
+  document.getElementById('btn-process-zip').disabled = false;
+  log('File selected: ' + file.name, 'ok');
+}
+
+// ═══════════════════════════════════════════════════════
+//  HTML → MARKDOWN CONVERTER
+// ═══════════════════════════════════════════════════════
+function htmlToMarkdown(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  // Remove noise
+  const remove = ['script','style','nav','footer','header','button',
+                   'svg','figure.pencraft','[data-component-name]',
+                   '.subscribe-widget','.post-upsell','.share-dialog',
+                   '.paywall-cta','.related-posts','.comments-section',
+                   'noscript','iframe','form','input','select','textarea'];
+  remove.forEach(sel => {
+    doc.querySelectorAll(sel).forEach(el => el.remove());
+  });
+
+  // Try to find main content
+  const content =
+    doc.querySelector('article') ||
+    doc.querySelector('.post-content') ||
+    doc.querySelector('[class*="body"]') ||
+    doc.querySelector('main') ||
+    doc.body;
+
+  return nodeToMarkdown(content).trim();
+}
+
+function nodeToMarkdown(node, depth = 0) {
+  if (!node) return '';
+  let md = '';
+
+  for (const child of node.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      const t = child.textContent.replace(/\s+/g, ' ');
+      if (t.trim()) md += t;
+      continue;
+    }
+    if (child.nodeType !== Node.ELEMENT_NODE) continue;
+
+    const tag = child.tagName.toLowerCase();
+    const inner = nodeToMarkdown(child, depth);
+
+    switch(tag) {
+      case 'h1': md += '\n\n# ' + inner.trim() + '\n\n'; break;
+      case 'h2': md += '\n\n## ' + inner.trim() + '\n\n'; break;
+      case 'h3': md += '\n\n### ' + inner.trim() + '\n\n'; break;
+      case 'h4': md += '\n\n#### ' + inner.trim() + '\n\n'; break;
+      case 'h5': md += '\n\n##### ' + inner.trim() + '\n\n'; break;
+      case 'h6': md += '\n\n###### ' + inner.trim() + '\n\n'; break;
+      case 'p':  md += '\n\n' + inner.trim() + '\n\n'; break;
+      case 'br': md += '  \n'; break;
+      case 'strong': case 'b': md += '**' + inner.trim() + '**'; break;
+      case 'em': case 'i': md += '*' + inner.trim() + '*'; break;
+      case 'code': md += '`' + inner + '`'; break;
+      case 'pre': {
+        const codeEl = child.querySelector('code');
+        const lang = codeEl ? (codeEl.className.match(/language-(\w+)/)||[])[1] || '' : '';
+        md += '\n\n```' + lang + '\n' + (codeEl ? codeEl.textContent : inner).trim() + '\n```\n\n';
+        break;
+      }
+      case 'blockquote': md += '\n\n' + inner.trim().split('\n').map(l => '> ' + l).join('\n') + '\n\n'; break;
+      case 'a': {
+        const href = child.getAttribute('href') || '';
+        const label = inner.trim() || href;
+        md += '[' + label + '](' + href + ')';
+        break;
+      }
+      case 'img': {
+        const alt = child.getAttribute('alt') || '';
+        const src = child.getAttribute('src') || '';
+        md += '\n\n![' + alt + '](' + src + ')\n\n';
+        break;
+      }
+      case 'ul': {
+        const items = [...child.querySelectorAll(':scope > li')].map(li =>
+          '- ' + nodeToMarkdown(li, depth+1).trim()
+        ).join('\n');
+        md += '\n\n' + items + '\n\n';
+        break;
+      }
+      case 'ol': {
+        const items = [...child.querySelectorAll(':scope > li')].map((li, i) =>
+          (i+1) + '. ' + nodeToMarkdown(li, depth+1).trim()
+        ).join('\n');
+        md += '\n\n' + items + '\n\n';
+        break;
+      }
+      case 'hr': md += '\n\n---\n\n'; break;
+      case 'table': md += '\n\n' + tableToMarkdown(child) + '\n\n'; break;
+      case 'div': case 'section': case 'article': case 'main':
+      case 'span': case 'figcaption': case 'figure': case 'li':
+        md += inner;
+        break;
+      default: md += inner; break;
+    }
+  }
+  return md;
+}
+
+function tableToMarkdown(table) {
+  const rows = [...table.querySelectorAll('tr')];
+  if (!rows.length) return '';
+  const toRow = tr => '| ' + [...tr.querySelectorAll('th,td')].map(c => c.textContent.trim().replace(/\|/g, '\\|')).join(' | ') + ' |';
+  const header = toRow(rows[0]);
+  const sep = '| ' + [...rows[0].querySelectorAll('th,td')].map(() => '---').join(' | ') + ' |';
+  const body = rows.slice(1).map(toRow).join('\n');
+  return [header, sep, body].filter(Boolean).join('\n');
+}
+
+function wordCount(str) {
+  return str.trim().split(/\s+/).filter(Boolean).length;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ZIP PROCESSING
+// ═══════════════════════════════════════════════════════
+async function processZip() {
+  if (!selectedFile) return;
+  clearProgress();
+  allPosts = [];
+  log('Loading ZIP file…', 'ok');
+  setProgress(5, 'Reading ZIP…');
+
+  try {
+    const jszip = new JSZip();
+    const zip = await jszip.loadAsync(selectedFile);
+    const htmlFiles = [];
+
+    zip.forEach((relativePath, file) => {
+      if (relativePath.includes('posts/') && relativePath.endsWith('.html') && !file.dir) {
+        htmlFiles.push({ path: relativePath, file });
+      }
+    });
+
+    if (!htmlFiles.length) {
+      // Try top-level HTML files if no posts/ folder
+      zip.forEach((relativePath, file) => {
+        if (relativePath.endsWith('.html') && !file.dir && !relativePath.includes('__MACOSX')) {
+          htmlFiles.push({ path: relativePath, file });
+        }
+      });
+    }
+
+    if (!htmlFiles.length) {
+      log('No HTML post files found in ZIP. Make sure it\'s a valid Substack export.', 'err');
+      return;
+    }
+
+    log('Found ' + htmlFiles.length + ' HTML files.', 'ok');
+
+    for (let i = 0; i < htmlFiles.length; i++) {
+      const { path, file } = htmlFiles[i];
+      setProgress(5 + Math.round((i / htmlFiles.length) * 85), `Processing ${i+1}/${htmlFiles.length}…`);
+
+      const raw = await file.async('string');
+      const md = htmlToMarkdown(raw);
+      if (md.length < 50) continue; // Skip near-empty
+
+      // Extract metadata from filename or content
+      const nameBase = path.split('/').pop().replace('.html', '');
+      const title = extractTitle(raw) || nameBase;
+      const date  = extractDate(raw) || extractDateFromFilename(nameBase);
+      const wc    = wordCount(md);
+
+      allPosts.push({ title, date, markdown: md, wordCount: wc, file: nameBase });
+      log('✓ ' + title, 'ok');
+    }
+
+    setProgress(100, 'Done!');
+    log('Processed ' + allPosts.length + ' posts.', 'ok');
+    renderPosts('ZIP');
+    enableResultButtons();
+  } catch(err) {
+    log('Error: ' + err.message, 'err');
+    console.error(err);
+  }
+}
+
+function extractTitle(html) {
+  const t = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  if (t) return t[1].replace(/\s*[–|·|-]\s*Substack.*/i, '').trim();
+  const h1 = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+  if (h1) return h1[1].replace(/<[^>]+>/g, '').trim();
+  return '';
+}
+
+function extractDate(html) {
+  const m = html.match(/<time[^>]*datetime="([^"]+)"/i) ||
+            html.match(/datePublished["\s]*:\s*"([^"]+)"/i) ||
+            html.match(/class="[^"]*date[^"]*"[^>]*>([^<]+)</i);
+  if (m) {
+    const d = new Date(m[1]);
+    if (!isNaN(d)) return d.toISOString().split('T')[0];
+  }
+  return '';
+}
+
+function extractDateFromFilename(name) {
+  const m = name.match(/(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : '';
+}
+
+// ═══════════════════════════════════════════════════════
+//  RSS FETCHING
+// ═══════════════════════════════════════════════════════
+async function fetchRSS() {
+  let url = document.getElementById('rss-url-input').value.trim();
+  if (!url) { log('Please enter a Substack URL.', 'warn'); return; }
+
+  clearProgress();
+  allPosts = [];
+
+  // Normalize URL
+  if (!url.startsWith('http')) url = 'https://' + url;
+  url = url.replace(/\/$/, '');
+  const feedUrl = url + '/feed';
+
+  log('Fetching RSS feed: ' + feedUrl, 'ok');
+  setProgress(10, 'Fetching RSS…');
+
+  try {
+    // Use allorigins CORS proxy as fallback
+    let xmlText;
+    try {
+      const res = await fetch(feedUrl);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      xmlText = await res.text();
+    } catch(e) {
+      log('Direct fetch failed, trying CORS proxy…', 'warn');
+      const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(feedUrl);
+      const res2 = await fetch(proxyUrl);
+      const json2 = await res2.json();
+      xmlText = json2.contents;
+    }
+
+    setProgress(40, 'Parsing feed…');
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(xmlText, 'text/xml');
+    const items = [...xml.querySelectorAll('item')];
+
+    if (!items.length) {
+      log('No items found in feed.', 'err');
+      return;
+    }
+    log('Found ' + items.length + ' posts in feed.', 'ok');
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      setProgress(40 + Math.round((i / items.length) * 55), `Parsing ${i+1}/${items.length}…`);
+
+      const title   = item.querySelector('title')?.textContent || 'Untitled';
+      const pubDate = item.querySelector('pubDate')?.textContent || '';
+      const content = item.querySelector('encoded')?.textContent ||
+                      item.querySelector('content\\:encoded')?.textContent ||
+                      item.querySelector('description')?.textContent || '';
+
+      const date = pubDate ? new Date(pubDate).toISOString().split('T')[0] : '';
+      const md   = htmlToMarkdown(content);
+      const wc   = wordCount(md);
+
+      if (md.length < 20) continue;
+      allPosts.push({ title, date, markdown: md, wordCount: wc });
+      log('✓ ' + title, 'ok');
+    }
+
+    setProgress(100, 'Done!');
+    log('Done! ' + allPosts.length + ' posts converted.', 'ok');
+    renderPosts('RSS');
+    enableResultButtons();
+  } catch(err) {
+    log('Error: ' + err.message, 'err');
+    console.error(err);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER POSTS
+// ═══════════════════════════════════════════════════════
+function renderPosts(source) {
+  const container = document.getElementById('posts-container');
+  container.innerHTML = '';
+
+  if (!allPosts.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">No posts could be extracted.</div></div>';
+    return;
+  }
+
+  document.getElementById('stat-count').textContent = allPosts.length;
+  document.getElementById('stat-words').textContent = allPosts.reduce((a, p) => a + p.wordCount, 0).toLocaleString();
+  document.getElementById('stat-source').textContent = source;
+  document.getElementById('results-toolbar').classList.add('visible');
+
+  allPosts.forEach((post, idx) => {
+    const card = buildPostCard(post, idx);
+    container.appendChild(card);
+  });
+}
+
+function buildPostCard(post, idx) {
+  const card = document.createElement('div');
+  card.className = 'post-card';
+  card.id = 'post-card-' + idx;
+
+  const preview = post.markdown.slice(0, 2000) + (post.markdown.length > 2000 ? '\n\n…' : '');
+
+  card.innerHTML = `
+    <div class="post-header" onclick="toggleCard(${idx})">
+      <div class="post-meta">
+        <div class="post-title">${escHtml(post.title)}</div>
+        <div class="post-tags">
+          ${post.date ? `<span class="tag date">${post.date}</span>` : ''}
+          <span class="tag words">${post.wordCount.toLocaleString()} words</span>
+        </div>
+      </div>
+      <div class="post-actions">
+        <button class="btn btn-ghost btn-tiny" onclick="copyPost(event, ${idx})">📋 Copy</button>
+        <button class="btn btn-green btn-tiny" id="ai-btn-${idx}" onclick="summarizePost(event, ${idx})">✨ AI Summary</button>
+        <span class="chevron">▾</span>
+      </div>
+    </div>
+    <div class="post-body">
+      <div class="markdown-preview">${escHtml(preview)}</div>
+      <div class="ai-summary-box" id="ai-summary-${idx}">
+        <div class="ai-summary-label">// AI Summary</div>
+        <div id="ai-summary-text-${idx}"></div>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function toggleCard(idx) {
+  const card = document.getElementById('post-card-' + idx);
+  card.classList.toggle('open');
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════
+//  COPY
+// ═══════════════════════════════════════════════════════
+async function copyPost(e, idx) {
+  e.stopPropagation();
+  const post = allPosts[idx];
+  const full = `# ${post.title}\n\n_${post.date}_\n\n${post.markdown}`;
+  await navigator.clipboard.writeText(full);
+  showToast('✓ Copied: ' + post.title.slice(0, 30));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('copy-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ═══════════════════════════════════════════════════════
+//  AI: PER-POST SUMMARY
+// ═══════════════════════════════════════════════════════
+async function summarizePost(e, idx) {
+  e.stopPropagation();
+  const post = allPosts[idx];
+  const btn = document.getElementById('ai-btn-' + idx);
+  const box = document.getElementById('ai-summary-' + idx);
+  const textEl = document.getElementById('ai-summary-text-' + idx);
+
+  btn.innerHTML = '<span class="spinner"></span> Thinking…';
+  btn.disabled = true;
+  box.classList.add('visible');
+  textEl.textContent = '';
+
+  const excerpt = post.markdown.slice(0, 3000);
+  const prompt = `Summarize this Substack post in exactly 2 sentences. Be specific and insightful. Post title: "${post.title}"\n\nContent:\n${excerpt}`;
+
+  try {
+    const reply = await puter.ai.chat(prompt);
+    textEl.textContent = typeof reply === 'string' ? reply : reply?.message?.content || JSON.stringify(reply);
+    btn.innerHTML = '✓ Summary';
+  } catch(err) {
+    textEl.textContent = 'Error: ' + err.message;
+    btn.innerHTML = '✨ AI Summary';
+    btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  AI: VOICE ANALYSIS
+// ═══════════════════════════════════════════════════════
+async function runVoiceAnalysis() {
+  if (!allPosts.length) { showToast('No posts loaded yet.'); return; }
+
+  const voicePanel = document.getElementById('voice-panel');
+  const output     = document.getElementById('voice-output');
+
+  voicePanel.classList.add('visible');
+  output.textContent = '⟳ Analyzing your writing voice…';
+
+  // Sample up to 5 posts, ~1000 chars each
+  const sample = allPosts.slice(0, 5).map(p =>
+    `---\nTITLE: ${p.title}\n\n${p.markdown.slice(0, 1000)}`
+  ).join('\n\n');
+
+  const prompt = `You are a literary analyst. Analyze the following blog posts and produce a detailed WRITING VOICE & STYLE BREAKDOWN. Cover: tone, sentence rhythm, vocabulary level, use of personal anecdote, argumentation style, recurring themes, what makes this writer distinctive. Be specific and quote short phrases as examples. Format your response clearly with section headers.\n\n${sample}`;
+
+  try {
+    const reply = await puter.ai.chat(prompt);
+    output.textContent = typeof reply === 'string' ? reply : reply?.message?.content || JSON.stringify(reply);
+  } catch(err) {
+    output.textContent = 'Error: ' + err.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DOWNLOAD ALL AS ZIP
+// ═══════════════════════════════════════════════════════
+async function downloadAllZip() {
+  if (!allPosts.length) return;
+  const zip = new JSZip();
+  const folder = zip.folder('stack2llm-export');
+
+  allPosts.forEach(post => {
+    const safeTitle = post.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 60);
+    const filename  = (post.date ? post.date + '-' : '') + safeTitle + '.md';
+    const content   = `# ${post.title}\n\n_Date: ${post.date || 'Unknown'}_  \n_Words: ${post.wordCount}_\n\n---\n\n${post.markdown}`;
+    folder.file(filename, content);
+  });
+
+  // Add combined file
+  const combined = allPosts.map(p =>
+    `# ${p.title}\n\n_Date: ${p.date || 'Unknown'}_\n\n${p.markdown}`
+  ).join('\n\n---\n\n');
+  folder.file('_ALL_POSTS_COMBINED.md', combined);
+
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'stack2llm-export.zip';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✓ ZIP downloaded!');
+}
+
+// ═══════════════════════════════════════════════════════
+//  SAVE TO PUTER DRIVE
+// ═══════════════════════════════════════════════════════
+async function saveToPuter() {
+  if (!allPosts.length) { showToast('No posts to save.'); return; }
+
+  showToast('⟳ Signing in to Puter…');
+
+  try {
+    await puter.auth.signIn();
+    showToast('✓ Signed in! Saving…');
+
+    const combined = allPosts.map(p =>
+      `# ${p.title}\n\n_Date: ${p.date || 'Unknown'}_  \n_Words: ${p.wordCount}_\n\n---\n\n${p.markdown}`
+    ).join('\n\n---\n\n');
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename  = 'stack2llm-' + timestamp + '.md';
+
+    await puter.fs.write(filename, combined);
+    showToast('✓ Saved to Puter Drive: ' + filename);
+    log('Saved to Puter Drive as ' + filename, 'ok');
+
+    // Also save individual posts
+    for (const post of allPosts) {
+      const safeTitle = post.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 60);
+      const fn = 'stack2llm/' + (post.date ? post.date + '-' : '') + safeTitle + '.md';
+      const content = `# ${post.title}\n\n_Date: ${post.date || 'Unknown'}_\n\n${post.markdown}`;
+      await puter.fs.write(fn, content, { createMissingParents: true });
+    }
+
+    showToast('✓ All posts saved individually to stack2llm/');
+  } catch(err) {
+    showToast('Error: ' + (err.message || err));
+    log('Puter error: ' + (err.message || err), 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ENABLE BUTTONS AFTER PROCESSING
+// ═══════════════════════════════════════════════════════
+function enableResultButtons() {
+  ['btn-voice-zip','btn-voice-rss',
+   'btn-save-puter','btn-save-puter-rss',
+   'btn-dl-zip','btn-dl-rss'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = false;
+  });
+}
+</script>
+</body>
+</html>
