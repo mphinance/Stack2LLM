@@ -1,35 +1,83 @@
-# Stack2LLM 📖
+# Stack2LLM 📖 v2.0
 
-**Live App:** [https://stack2llm.streamlit.app](https://stack2llm.streamlit.app)
+Convert Substack posts into clean, LLM-optimized Markdown **+ Voice Analysis**.
 
-Convert Substack posts into clean, LLM-optimized Markdown. Perfect for "Write as Me" training, NotebookLM, or custom RAG pipelines.
+**Live Streamlit App:** [stack2llm.streamlit.app](https://stack2llm.streamlit.app) (basic version)
 
-## 🚀 The Vision
-Every Substack writer has a unique voice. This tool bridges the gap between your published archive and personal AI models. Whether you're using NotebookLM to brainstorm new ideas or training a custom LLM to mimic your style, **Substack Flow** ensures your data is clean, formatted, and ready to go.
+## 🚀 What's New in v2.0
+
+- **CLI-first** — no browser needed, works in pipelines and scripts
+- **Voice Analysis Engine** — word frequency, Flesch-Kincaid readability, vocabulary richness, tone markers, perspective analysis
+- **Voice Fingerprint** — auto-generates a "write as me" system prompt for any LLM
+- **Ghost Alpha Integration** — feed into mphinance VOICE.md for Sam's writing calibration
 
 ## ✨ Features
-- **Official Export Support**: Process your full Substack ZIP export in seconds.
-- **Instant Scraper**: Paste any public Substack URL to pull the latest posts via RSS.
-- **LLM-Ready Markdown**: Automatically strips HTML noise (buttons, scripts, SVGs) and converts images to searchable captions.
-- **Voice Preservation**: Maintains your narrative structure better than flat CSV or messy PDF exports.
 
-## 🛠️ How to Use
-1. **Upload**: Drop your official Substack export ZIP.
-2. **Scrape**: Or simply enter a URL (e.g., `vixqueen.substack.com`).
-3. **Convert**: Download your clean `.md` files or a combined archive.
+- **Official Export Support**: Process your full Substack ZIP export in seconds
+- **Instant Scraper**: Paste any public Substack URL to pull the latest posts via RSS
+- **LLM-Ready Markdown**: Strips HTML noise and converts images to searchable captions
+- **Voice Analysis**: Sentence structure, readability, em-dash frequency, vocabulary richness, tone profiling
+- **Voice Prompt Generator**: Creates an LLM system prompt that captures the author's writing fingerprint
 
-## 📦 Setup & Installation
+## 🛠️ CLI Usage
+
 ```bash
-git clone https://github.com/mphinance/Stack2LLM.git
-cd Stack2LLM
-python3 -m venv venv
-source venv/bin/activate
+# Install
 pip install -r requirements.txt
+
+# Scrape a Substack + run voice analysis
+python3 cli.py scrape mphinance.substack.com --analyze
+
+# Process a ZIP export
+python3 cli.py process export.zip --analyze
+
+# Analyze an existing markdown file
+python3 cli.py analyze archive.md --name "Author Name"
+
+# Generate a "write as me" system prompt
+python3 cli.py voice-prompt archive.md --name "Michael" -o voice_prompt.md
+```
+
+## 📊 Voice Analysis Output
+
+Running `--analyze` produces a full voice fingerprint:
+
+| Metric | Example |
+|--------|---------|
+| Avg Sentence Length | 13.4 words |
+| Flesch-Kincaid Grade | 8.0 |
+| Em dashes per 1K words | 10.0 |
+| Bold emphasis count | 484 |
+| Type-Token Ratio | 0.227 |
+| Dominant perspective | First person |
+
+Plus top words, tone markers, and a summary like:
+> 📖 Medium sentence length — balanced, readable prose
+> — Heavy em-dash user — parenthetical thinker, aside-driven
+> 💻 Technical writer — embeds code in narrative
+
+## 🌐 Streamlit App
+
+The original Streamlit app (`app.py`) still works for browser-based usage:
+
+```bash
 streamlit run app.py
 ```
 
-## 🧠 Why Markdown?
-NotebookLM and other LLMs perform best when they understand headers and context. Substack Flow prioritizes structural integrity over raw data, giving you the best results for personality-driven AI.
+## 🧠 Why Voice Analysis?
+
+NotebookLM and other LLMs perform best when they understand your voice. The voice fingerprint captures:
+
+- How long your sentences are
+- Your favorite punctuation habits (em dashes, anyone?)
+- Whether you bold everything or let the words speak
+- Your vocabulary diversity
+- Whether you write to yourself (first person) or to the reader (second person)
+
+This feeds directly into "write as me" prompts that actually work.
 
 ---
-Built for writers. Optimized for the future.
+
+Built for writers. Analyzed for AI. Optimized for the future.
+
+*Part of the [mphinance](https://mphinance.com) ecosystem.*
